@@ -25,6 +25,7 @@ package com.raywenderlich.galacticon
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
 import android.view.Menu
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
@@ -32,8 +33,12 @@ import java.util.*
 
 class MainActivity : AppCompatActivity(), ImageRequester.ImageRequesterResponse {
 
-    private var photosList: ArrayList<Photo> = ArrayList()
-    private lateinit var imageRequester: ImageRequester
+  private var photosList: ArrayList<Photo> = ArrayList()
+  private lateinit var imageRequester: ImageRequester
+  private lateinit var linearLayoutManager: LinearLayoutManager
+  private lateinit var adapter: RecyclerAdapter
+  private val lastVisibleItemPosition: Int
+    get() = linearLayoutManager.findLastVisibleItemPosition()
 
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
       menuInflater.inflate(R.menu.menu_main, menu)
@@ -43,12 +48,31 @@ class MainActivity : AppCompatActivity(), ImageRequester.ImageRequesterResponse 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-
+    linearLayoutManager = LinearLayoutManager(this)
+    recyclerView.layoutManager = linearLayoutManager
+    adapter = RecyclerAdapter(photosList)
+    recyclerView.adapter = adapter
+    setRecyclerViewScrollListener()
     imageRequester = ImageRequester(this)
   }
 
   override fun onStart() {
     super.onStart()
+    if (photosList.size == 0) {
+      requestPhoto()
+    }
+  }
+
+  private fun setRecyclerViewScrollListener() {
+    recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+      override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        super.onScrollStateChanged(recyclerView, newState)
+        val totalItemCount = recyclerView.layoutManager!!.itemCount
+        if (!imageRequester.isLoadingData && totalItemCount == lastVisibleItemPosition + 1) {
+          requestPhoto()
+        }
+      }
+    })
   }
 
   private fun requestPhoto() {
@@ -63,6 +87,7 @@ class MainActivity : AppCompatActivity(), ImageRequester.ImageRequesterResponse 
   override fun receivedNewPhoto(newPhoto: Photo) {
     runOnUiThread {
       photosList.add(newPhoto)
+      adapter.notifyItemInserted(photosList.size-1)
     }
   }
 }
